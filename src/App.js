@@ -6,11 +6,13 @@ const MatrixInput = ({
   columns,
   value: initialValue,
   setValue: setInitialValue,
-  className
+  className,
+  ...props
 }) => {
   const [value, setValue] = useState('')
   const [isValid, setIsValid] = useState(true)
   const [touched, setTouched] = useState(false)
+  const [cols, setCols] = useState(columns)
 
   const parseValue = (value) => {
     return value.map(row => row.join(' ')).join('\n')
@@ -19,10 +21,7 @@ const MatrixInput = ({
   const processValue = (value) => {
     return value.split('\n').map(
       row => row.split(' ').map(
-        num => {
-          const result = parseFloat(num)
-          return !isNaN(result) ? result : num
-        }
+        num => isNaN(num) ? num : parseFloat(num)
       )
     )
   }
@@ -42,14 +41,11 @@ const MatrixInput = ({
   }
 
   useEffect(() => {
-    if (!Array.isArray(initialValue)) {
-      setValue('')
-    } else {
-      const value = parseValue(initialValue)
-      setValue(value)
-      const isValid = validate(value)
-      setIsValid(isValid)
-    }
+    const value = Array.isArray(initialValue) ? parseValue(initialValue) : initialValue
+    handleCols(value)
+    setValue(value)
+    const isValid = validate(value)
+    setIsValid(isValid)
   }, [initialValue])
 
   const onBlur = () => {
@@ -61,8 +57,18 @@ const MatrixInput = ({
     }
   }
 
+  const handleCols = (matrix) => {
+    const rowsLengths = Array.isArray(matrix)
+      ? matrix.map(row => row.join(' ').length)
+      : matrix.split('\n').map(row => row.length)
+    const cols = Math.max(...rowsLengths)
+    setCols(cols)
+  }
+
   const changeHandler = ({ target }) => {
-    setValue(target.value)
+    const { value } = target
+    handleCols(value)
+    setValue(value)
   }
 
   return (
@@ -71,7 +77,26 @@ const MatrixInput = ({
       value={value}
       onChange={changeHandler}
       onBlur={onBlur}
+      rows={rows}
+      cols={cols}
+      {...props}
     />
+  )
+}
+
+const Header = () => {
+  return (
+    <>
+      <h2>Реализация матричной модели обработки информации в искусственных нейронный сетях</h2>
+      <p>Разработчики:</p>
+      <ul>
+        <li>Овчинникова М. А.</li>
+        <li>Ларюшина И. А.</li>
+        <li>Комиссарова Е. Г.</li>
+        <li>Кувшинов В. Л.</li>
+      </ul>
+      <hr />
+    </>
   )
 }
 
@@ -84,27 +109,18 @@ const App = () => {
   const [Net2, setNet2] = useState([])
   const [Out1, setOut1] = useState([])
   const [Out2, setOut2] = useState([])
+  const [auto, setAuto] = useState(true)
 
-  const autoSetup = () => {
-    if (vector.length && vector.length !== size) {
-      const value = vector[0][0]
-      setVector(Array.from({ length: size }).fill([value]))
-    }
-
+  useEffect(() => {
     const createMatrix = (value) => {
       const row = Array.from({ length: size }).fill(value)
       return Array.from({ length: size }).fill(row)
     }
 
-    if (W.length && W.length !== size) {
-      const value = W[0][0]
-      setW(createMatrix(value))
-    }
-    if (V.length && V.length !== size) {
-      const value = V[0][0]
-      setV(createMatrix(value))
-    }
-  }
+    const value = auto ? parseFloat((1 / size).toFixed(3)) : 0
+    setW(createMatrix(value))
+    setV(createMatrix(value))
+  }, [auto, size])
 
   const computeNet = (vector, matrix) => {
     if (vector.length !== size || matrix.length !== size) return[]
@@ -145,7 +161,7 @@ const App = () => {
       <div>
         {title}
         <div className={classes.net}>
-          {result.map(num => <div>{parseFloat(num.toFixed(4))}</div>)}
+          {result.map(num => <div>{parseFloat(num.toFixed(3))}</div>)}
         </div>
       </div>
     )
@@ -153,34 +169,28 @@ const App = () => {
 
   return (
     <>
-      <h2>Реализация матричной модели обработки информации в искусственных нейронный сетях</h2>
-      <p>Разработчики:</p>
-      <ul>
-        <li>Овчинникова М. А.</li>
-        <li>Ларюшина И. А.</li>
-        <li>Комиссарова Е. Г.</li>
-        <li>Кувшинов В. Л.</li>
-      </ul>
-      <hr />
+      <Header />
       <div className={classes.wrapper}>
         <div>
           Вектор
           <MatrixInput
-            rows={5}
+            rows={size}
             columns={1}
-            className={`${classes.matrix} ${classes.vector}`}
+            className={classes.matrix}
             value={vector}
             setValue={setVector}
+            style={{ maxWidth: '50px'}}
           />
         </div>
         <div>
           Матрица W
           <MatrixInput
-            rows={5}
-            columns={5}
+            rows={size}
+            columns={size}
             className={classes.matrix}
             value={W}
             setValue={setW}
+            readOnly={auto}
           />
         </div>
         <ResultColumn title='NET1' result={Net1} />
@@ -188,11 +198,12 @@ const App = () => {
         <div>
           Матрица V
           <MatrixInput
-            rows={5}
-            columns={5}
+            rows={size}
+            columns={size}
             className={classes.matrix}
             value={V}
             setValue={setV}
+            readOnly={auto}
           />
         </div>
         <ResultColumn title='NET2' result={Net2} />
@@ -205,9 +216,14 @@ const App = () => {
           className={classes.sizeInput}
           min={1}
           value={size}
-          onChange={({ target }) => { setSize(target.value) }}
+          onChange={({ target }) => { setSize(Number(target.value)) }}
         />
-        <button onClick={autoSetup}>Заполнить автоматически</button>
+        <span>Автоматическое заполнение</span>
+        <input
+          type='checkbox'
+          checked={auto}
+          onChange={({ target }) => { setAuto(target.checked) }}
+        />
       </div>
     </>
   )

@@ -27,10 +27,6 @@
   outline: none;
 }
 
-.vector {
-  width: 50px;
-}
-
 .hasError {
   border-color: red;
 }
